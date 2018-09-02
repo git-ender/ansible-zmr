@@ -1,0 +1,7 @@
+---
+keypair_name: zmr-key
+instance_type: t2.micro
+aws_ec2_id: zmr-ec2
+security_group: zmr-sg
+ami_image: ami-0bdb1d6c15a40392c
+aws_region: eu-west-1

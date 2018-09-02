@@ -1,0 +1,61 @@
+---
+- name: Ensure that SG with SSH inbound exist
+  ec2_group:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ aws_region }}"
+    name: "{{ security_group }}"
+    description: SG for ZMR VMs
+    rules:
+      - proto: tcp
+        ports:
+        - 22
+        cidr_ip: 0.0.0.0/0
+        rule_desc: pass from any on port 22
+
+- name: Create a new key pair if it not exist
+  ec2_key:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ aws_region }}"
+    name: "{{ keypair_name }}"
+    force: false
+  register: aws_key
+
+- name: Save generated key, in ssh home directory, but never overwrite
+  copy:
+    content: "{{ aws_key.key.private_key }}"
+    dest: "~/.ssh/id_rsa_aws.{{ keypair_name }}.pem"
+    mode: 0600
+    force: no
+  when: aws_key.changed
+
+- name: Launch EC2 instance
+  ec2:
+    aws_access_key: "{{ aws_access_key }}"  
+    aws_secret_key: "{{ aws_secret_key }}"
+    keypair: "{{ keypair_name }}"
+    group: "{{ security_group }}"
+    instance_type: "{{ instance_type }}"
+    image: "{{ ami_image }}"
+    region: "{{ aws_region }}"
+    id: "{{ aws_ec2_id }}"
+    wait: true
+  register: ec2
+
+- name: Add new instance to host group
+  add_host:
+   hostname: "{{ item.public_dns_name }}"
+   groups: docker_ec2
+   ansible_ssh_private_key_file:  "~/.ssh/id_rsa_aws.{{ keypair_name }}.pem"
+  with_items: "{{ ec2.instances }}"
+
+- name: Wait for instances to start
+  wait_for:
+    host: "{{ item.public_dns_name }}"
+    port: 22
+    delay: 60
+    timeout: 600
+    state: started
+  with_items: "{{ ec2.instances }}"
+  when: ec2.changed

@@ -1,0 +1,9 @@
+- hosts: localhost
+  gather_facts: False
+  roles:
+  - role: zmr-provision_vm
+    tags: provision_vm
+  - role: zmr-deploy_vm
+    tags: deploy_vm
+  - role: zmr-mariadb_docker
+    tags: mariadb_docker
